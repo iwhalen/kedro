@@ -159,7 +159,7 @@ class Task:
                 factory_inputs = {}
 
                 for dataset_name in catalog.keys():
-                    if parse(name, dataset_name) is not None:
+                    if parse(name, dataset_name) is not None and dataset_name != name:
                         hook_manager.hook.before_dataset_loaded(
                             dataset_name=dataset_name, node=node
                         )
