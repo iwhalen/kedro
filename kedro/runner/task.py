@@ -14,6 +14,7 @@ from concurrent.futures import (
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
+from parse import parse
 from more_itertools import interleave
 
 from kedro.framework.hooks.manager import (
@@ -154,8 +155,21 @@ class Task:
         inputs = {}
 
         for name in node.inputs:
-            hook_manager.hook.before_dataset_loaded(dataset_name=name, node=node)
-            inputs[name] = catalog.load(name)
+            if catalog.config_resolver.is_pattern(name):  # type: ignore
+                factory_inputs = {}
+
+                for dataset_name in catalog.keys():
+                    if parse(name, dataset_name) is not None and dataset_name != name:
+                        hook_manager.hook.before_dataset_loaded(
+                            dataset_name=dataset_name, node=node
+                        )
+                        factory_inputs[dataset_name] = catalog.load(dataset_name)
+
+                inputs[name] = factory_inputs
+
+            else:
+                hook_manager.hook.before_dataset_loaded(dataset_name=name, node=node)
+                inputs[name] = catalog.load(name)
             hook_manager.hook.after_dataset_loaded(
                 dataset_name=name, data=inputs[name], node=node
             )

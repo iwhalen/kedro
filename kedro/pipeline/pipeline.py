@@ -15,6 +15,8 @@ from itertools import chain
 from typing import TYPE_CHECKING, Any
 from warnings import warn
 
+from parse import parse
+
 import kedro
 from kedro.pipeline.node import GroupedNodes, Node, _to_list
 from kedro.utils import get_close_matches
@@ -265,6 +267,8 @@ class Pipeline:
         self._nodes_by_input: dict[str, set[Node]] = defaultdict(set)
         for node in tagged_nodes:
             for input_ in node.inputs:
+                if "{" in input_:
+                    continue  # Skip factory inputs
                 self._nodes_by_input[_strip_transcoding(input_)].add(node)
 
         # output -> node with output
@@ -272,6 +276,15 @@ class Pipeline:
         for node in tagged_nodes:
             for output in node.outputs:
                 self._nodes_by_output[_strip_transcoding(output)] = node
+
+        # Match the outputs of the pipeline to the factory inputs.
+        output_names = sorted(self._nodes_by_output)
+        for node in tagged_nodes:
+            for input_ in node.inputs:
+                if "{" in input_:
+                    for output in output_names:
+                        if parse(input_, output) is not None:
+                            self._nodes_by_input[output].add(node)
 
         self._nodes = tagged_nodes
         self._toposorter = TopologicalSorter(self.node_dependencies)
